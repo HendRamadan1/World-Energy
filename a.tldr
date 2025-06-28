@@ -36,15 +36,15 @@
 		{
 			"id": "pointer:pointer",
 			"typeName": "pointer",
-			"x": 1165,
-			"y": 512,
-			"lastActivityTimestamp": 1750192712094,
+			"x": 447.4294766512784,
+			"y": 1269.1774347478693,
+			"lastActivityTimestamp": 1750802415749,
 			"meta": {}
 		},
 		{
-			"x": -365,
-			"y": -240,
-			"z": 1,
+			"x": -40.678955078125,
+			"y": -944.5233487215909,
+			"z": 0.8039325892817315,
 			"meta": {},
 			"id": "camera:page:page",
 			"typeName": "camera"
@@ -163,12 +163,12 @@
 			"typeName": "shape"
 		},
 		{
-			"editingShapeId": "shape:3zBwXMjSCKHB7_y9DYtCI",
+			"editingShapeId": "shape:lw3iv6v2L3EPPZ_STi9cS",
 			"croppingShapeId": null,
 			"selectedShapeIds": [
-				"shape:3zBwXMjSCKHB7_y9DYtCI"
+				"shape:lw3iv6v2L3EPPZ_STi9cS"
 			],
-			"hoveredShapeId": null,
+			"hoveredShapeId": "shape:lw3iv6v2L3EPPZ_STi9cS",
 			"erasingShapeIds": [],
 			"hintingShapeIds": [],
 			"focusedGroupId": null,
@@ -214,6 +214,135 @@
 			},
 			"parentId": "page:page",
 			"index": "a6AIe",
+			"typeName": "shape"
+		},
+		{
+			"x": 324.9067660245028,
+			"y": 1055.200439453125,
+			"rotation": 0,
+			"isLocked": false,
+			"opacity": 1,
+			"meta": {},
+			"id": "shape:lw3iv6v2L3EPPZ_STi9cS",
+			"type": "text",
+			"props": {
+				"color": "black",
+				"size": "m",
+				"w": 396.9296875,
+				"font": "draw",
+				"textAlign": "start",
+				"autoSize": true,
+				"scale": 1,
+				"richText": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "paragraph",
+							"attrs": {
+								"dir": "auto"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Feature engineering "
+								}
+							]
+						},
+						{
+							"type": "bulletList",
+							"content": [
+								{
+									"type": "listItem",
+									"content": [
+										{
+											"type": "paragraph",
+											"attrs": {
+												"dir": "auto"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "add ecnomic features (GDP)"
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "listItem",
+									"content": [
+										{
+											"type": "paragraph",
+											"attrs": {
+												"dir": "auto"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "Build model(s)"
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "listItem",
+									"content": [
+										{
+											"type": "paragraph",
+											"attrs": {
+												"dir": "auto"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "plots"
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "listItem",
+									"content": [
+										{
+											"type": "paragraph",
+											"attrs": {
+												"dir": "auto"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "GUI"
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "listItem",
+									"content": [
+										{
+											"type": "paragraph",
+											"attrs": {
+												"dir": "auto"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "fill src"
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			},
+			"parentId": "page:page",
+			"index": "a9CEC",
 			"typeName": "shape"
 		},
 		{
@@ -347,8 +476,7 @@
 			"followingUserId": null,
 			"opacityForNextShape": 1,
 			"stylesForNextShape": {
-				"tldraw:geo": "rectangle",
-				"tldraw:size": "s"
+				"tldraw:color": "black"
 			},
 			"brush": null,
 			"scribbles": [],
