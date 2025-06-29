@@ -165,5 +165,5 @@ def tune_and_train(data, country, parameter, product):
 if __name__ == "__main__":
     data = pd.read_csv(r"/home/skillissue/Summer25/World Energy /data/processed/model_ready.csv")
     model, best_params, feature_scaler, target_scaler = tune_and_train(
-        data, 'Germany', 'Net Electricity Production', 'Electricity'
+        data, 'United States', 'Net Electricity Production', 'Electricity'
     )

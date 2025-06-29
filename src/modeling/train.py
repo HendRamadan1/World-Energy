@@ -7,6 +7,16 @@ import torch.nn as nn
 import pickle
 from plots import plot_sequences, plot_loss
 
+class WeightedMSELoss(nn.Module):
+    def __init__(self, weight_factor=2.0):
+        super(WeightedMSELoss, self).__init__()
+        self.weight_factor = weight_factor
+
+    def forward(self, y_pred, y_true):
+        error = y_true - y_pred
+        weights = torch.abs(error) * self.weight_factor
+        return torch.mean(weights * error ** 2)
+
 def train_model(data, country, parameter, product, hidden_size=128, num_layers=2, lr=0.001, weight_decay=1e-5, num_epochs=5000):
     """Train the SeasonalLSTM model.
 
@@ -35,9 +45,9 @@ def train_model(data, country, parameter, product, hidden_size=128, num_layers=2
     X_test = torch.FloatTensor(X_test)
     y_test = torch.FloatTensor(y_test)
 
-    model = SeasonalLSTM(input_size=X_train.shape[2], hidden_size=hidden_size, output_size=y_train.shape[1], num_layers=num_layers)
+    model = SeasonalLSTM(input_size=X_train.shape[2], hidden_size=hidden_size, output_size=y_train.shape[1], num_layers=num_layers, dropout=0.3)
 
-    criterion = nn.MSELoss()
+    criterion = WeightedMSELoss(weight_factor=2.0)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
 
@@ -80,12 +90,13 @@ if __name__ == "__main__":
         country='Germany',
         parameter='Net Electricity Production',
         product='Electricity',
-        hidden_size=128,
+        hidden_size=256,
         num_layers=2,
-        lr=0.001,
-        weight_decay=1e-5,
-        num_epochs=5000
+        lr=0.0030667674041639148,
+        weight_decay=0.00021075022059945686,
+        num_epochs=100
     )
+    # Best Hyperparameters: {'hidden_size': 128, 'num_layers': 2, 'learning_rate': 0.0030667674041639148, 'weight_decay': 0.00021075022059945686, 'dropout': 0.3}
 
     # Plot sequences and losses
     plot_sequences(

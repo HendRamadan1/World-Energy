@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler
+
 
 class SeasonalLSTM(nn.Module):
     """LSTM model for seasonal time series forecasting.
@@ -15,7 +17,7 @@ class SeasonalLSTM(nn.Module):
         num_layers (int): Number of LSTM layers. Defaults to 2.
         dropout (float): Dropout rate for LSTM layers. Defaults to 0.2.
     """
-    def __init__(self, input_size, hidden_size, output_size, num_layers=2, dropout=0.2):
+    def __init__(self, input_size, hidden_size, output_size, num_layers=2, dropout=0.3):
         super(SeasonalLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -41,7 +43,7 @@ def create_sequences(data, country, parameter, product, input_years=3, predict_s
     """Create input sequences and targets for the SeasonalLSTM model.
 
     Args:
-        data (pd.DataFrame): The complete dataset.
+        data (pd.DataFrame): The complete dataset with columns ['country_name', 'parameter', 'product', 'date', 'value', 'month', 'hemisphere', ...].
         country (str): Country to filter data.
         parameter (str): Parameter to filter data.
         product (str): Product to filter data.
@@ -50,20 +52,23 @@ def create_sequences(data, country, parameter, product, input_years=3, predict_s
 
     Returns:
         tuple: (X, y, preprocessor, target_scaler)
-            - X (np.array): Input sequences.
-            - y (np.array): Target values.
+            - X (np.array): Input sequences of shape (num_samples, input_seasons, num_features).
+            - y (np.array): Target values of shape (num_samples, predict_seasons).
             - preprocessor (ColumnTransformer): Preprocessor for features.
-            - target_scaler (MinMaxScaler): Scaler for target values.
+            - target_scaler (Standard scaler): Scaler for target values.
     """
+    # Filter and sort data
     country_data = data[
         (data['country_name'] == country) &
         (data['parameter'] == parameter) &
         (data['product'] == product)
     ].sort_values('date').copy()
 
-    country_data['rolling_avg'] = country_data['value'].rolling(window=3, min_periods=1).mean()
+    # Calculate rolling average with a smaller window to preserve more variation
+    country_data['rolling_avg'] = country_data['value'].rolling(window=2, min_periods=1).mean()
     country_data = country_data.dropna()
 
+    # Define seasons based on hemisphere
     hemisphere = country_data['hemisphere'].iloc[0]
     seasons = {
         'Northern': {
@@ -74,36 +79,41 @@ def create_sequences(data, country, parameter, product, input_years=3, predict_s
         }
     }[hemisphere]
 
+    # Map months to seasons
     month_to_season = {month: season for season, months in seasons.items() for month in months}
     country_data['season'] = country_data['month'].map(month_to_season)
 
-    seasonal_avg = country_data.groupby(['year', 'season']).agg({
-        'rolling_avg': 'mean', 'major_production_month': 'last', 'production_season': 'last',
-        'peak_ratio': 'last', 'peak_consistency': 'last', 'hemisphere': 'first'
-    }).reset_index()
+    # Use raw data with rolling averages instead of heavy aggregation
+    features = country_data[['rolling_avg', 'month', 'major_production_month', 'peak_ratio', 
+                           'peak_consistency', 'hemisphere']].copy()
+    target = country_data['value'].values  # Use raw value for target to capture actual trends
 
-    season_order = list(seasons.keys())
-    seasonal_avg['season'] = pd.Categorical(seasonal_avg['season'], categories=season_order, ordered=True)
-    seasonal_avg = seasonal_avg.sort_values(['year', 'season'])
+    # Add seasonal encoding as numerical features
+    features['season_index'] = country_data.index
+    features['sin_season'] = np.sin(2 * np.pi * features['season_index'] / 12)  # 12 months per cycle
+    features['cos_season'] = np.cos(2 * np.pi * features['season_index'] / 12)
 
-    features = seasonal_avg[['rolling_avg', 'major_production_month', 'peak_ratio', 'peak_consistency', 'production_season', 'hemisphere']]
-    target = seasonal_avg['rolling_avg']
-
+    # Preprocess features
     preprocessor = ColumnTransformer([
-        ('num', MinMaxScaler(), ['rolling_avg', 'major_production_month', 'peak_ratio', 'peak_consistency']),
-        ('cat', OneHotEncoder(), ['production_season', 'hemisphere'])
+        ('num', StandardScaler(), ['rolling_avg', 'month', 'major_production_month', 'peak_ratio', 
+                                'peak_consistency', 'sin_season', 'cos_season']),
+        ('cat', OneHotEncoder(drop='first'), ['hemisphere'])
     ])
 
     processed_features = preprocessor.fit_transform(features)
-    target_scaler = MinMaxScaler()
-    target_scaled = target_scaler.fit_transform(target.values.reshape(-1, 1))
+    target_scaler = StandardScaler()
+    target_scaled = target_scaler.fit_transform(target.reshape(-1, 1))
 
-    input_seasons = input_years * 4
-    total_seasons = len(seasonal_avg)
+    # Create sequences
+    input_seasons = input_years * 12  # Use months instead of seasons for finer granularity
+    total_samples = len(country_data)
     X, y = [], []
 
-    for i in range(total_seasons - input_seasons - predict_seasons + 1):
-        X.append(processed_features[i:i+input_seasons])
-        y.append(target_scaled[i+input_seasons:i+input_seasons+predict_seasons].flatten())
+    for i in range(total_samples - input_seasons - predict_seasons + 1):
+        X.append(processed_features[i:i + input_seasons])
+        y.append(target_scaled[i + input_seasons:i + input_seasons + predict_seasons].flatten())
 
-    return np.array(X), np.array(y), preprocessor, target_scaler
+    X = np.array(X)
+    y = np.array(y)
+
+    return X, y, preprocessor, target_scaler
