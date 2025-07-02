@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from model import create_sequences
 
-def plot_sequences(model, data, country, parameter, product, feature_scaler, target_scaler, input_years=3, predict_seasons=1, save_path=None):
+def plot_sequences(model, data, country, parameter, product, feature_scaler, target_scaler, input_years=3, predict_seasons=4, save_path=None):
     """
     Plot the actual sequence, trained sequence, and predicted sequence at the monthly level.
 

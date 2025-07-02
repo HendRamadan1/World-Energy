@@ -17,7 +17,7 @@ class WeightedMSELoss(nn.Module):
         weights = torch.abs(error) * self.weight_factor
         return torch.mean(weights * error ** 2)
 
-def train_model(data, country, parameter, product, hidden_size=128, num_layers=2, lr=0.001, weight_decay=1e-5, num_epochs=5000):
+def train_model(data, country, parameter, product, hidden_size=128, num_layers=2, lr=0.001, weight_decay=1e-5, num_epochs=7000):
     """Train the SeasonalLSTM model.
 
     Args:
@@ -45,7 +45,7 @@ def train_model(data, country, parameter, product, hidden_size=128, num_layers=2
     X_test = torch.FloatTensor(X_test)
     y_test = torch.FloatTensor(y_test)
 
-    model = SeasonalLSTM(input_size=X_train.shape[2], hidden_size=hidden_size, output_size=y_train.shape[1], num_layers=num_layers, dropout=0.3)
+    model = SeasonalLSTM(input_size=X_train.shape[2], hidden_size=hidden_size, output_size=y_train.shape[1], num_layers=num_layers, dropout=0.2)
 
     criterion = WeightedMSELoss(weight_factor=2.0)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -87,14 +87,14 @@ if __name__ == "__main__":
     data = pd.read_csv(r"/home/skillissue/Summer25/World Energy /data/processed/model_ready.csv")
     model, train_losses, test_losses, feat_scaler, target_scaler = train_model(
         data,
-        country='Germany',
+        country='Argentina',
         parameter='Net Electricity Production',
         product='Electricity',
         hidden_size=256,
-        num_layers=2,
-        lr=0.0030667674041639148,
-        weight_decay=0.00021075022059945686,
-        num_epochs=100
+        num_layers=1,
+        lr=0.0007221676729397737,
+        weight_decay=0.000230930982691119,
+        num_epochs=1000
     )
     # Best Hyperparameters: {'hidden_size': 128, 'num_layers': 2, 'learning_rate': 0.0030667674041639148, 'weight_decay': 0.00021075022059945686, 'dropout': 0.3}
 
@@ -102,13 +102,13 @@ if __name__ == "__main__":
     plot_sequences(
         model=model,
         data=data,
-        country='Germany',
+        country='Argentina',
         parameter='Net Electricity Production',
         product='Electricity',
         feature_scaler=feat_scaler,
         target_scaler=target_scaler,
         input_years=3,
-        predict_seasons=1,
+        predict_seasons=4,
         save_path="/home/skillissue/Summer25/World Energy /plots/sequences.png"
     )
     plot_loss(
