@@ -1,122 +1,131 @@
-import torch
-import torch.optim as optim
 import pandas as pd
+import torch
+import torch.nn as nn
+import torch.optim as torch_optim
+from torch.utils.data import TensorDataset, DataLoader
+from attention_model import DataProcessor, TransformerModel, load_model
+from plots import plot_loss, plot_sequences
 import numpy as np
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from attention_model import ModelFactory, create_sequences
-from torch.utils.data import DataLoader, TensorDataset
-import os
 
-def preprocess_data(data_path):
-    # Load and filter data
-    df = pd.read_csv(data_path)
-    df = df[(df['country_name'] == 'United States') & 
-            (df['parameter'] == 'Net Electricity Production') & 
-            (df['product'] == 'Electricity')].sort_values('date')
+# Load data
+data = pd.read_csv('/home/skillissue/Summer25/World Energy /data/processed/final_model_ready.csv')
 
-    # Split into train (2010-2018) and test (2019+)
-    train_df = df[df['year'].between(2010, 2018)]
-    test_df = df[df['year'] >= 2019]
+# Process data
+processor = DataProcessor(data)
+processor.filter_data('United States', 'Net Electricity Production', 'Electricity')
+processor.sort_data()
+processor.split_data(test_size=0.2)
+processor.standardize()
+train_sequences, train_targets = processor.get_train_sequences()
+test_sequences, test_targets = processor.get_test_sequences()
 
-    # Define features
-    categorical_cols = ['country_name', 'parameter', 'product', 'hemisphere', 'production_season']
-    numerical_cols = ['year', 'month', 'major_production_month', 'peak_ratio', 'peak_consistency', 
-                      'GDP', 'GDP_per_capita', 'Monthly Temperature Averages', 'Daylight Hours', 
-                      'Nuclear Plant Status (Inferred Outage)', 'Industrial Production Index', 
-                      'Average Energy Price (USD/MWh)']
+# Convert to torch tensors
+train_sequences = torch.tensor(train_sequences, dtype=torch.float32)
+train_targets = torch.tensor(train_targets, dtype=torch.float32)
+test_sequences = torch.tensor(test_sequences, dtype=torch.float32)
+test_targets = torch.tensor(test_targets, dtype=torch.float32)
 
-    # Preprocessing pipeline
-    preprocessor = ColumnTransformer([
-        ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_cols),
-        ('num', StandardScaler(), numerical_cols)
-    ])
-    target_scaler = StandardScaler()
+# Create DataLoaders
+batch_size = 32
+train_dataset = TensorDataset(train_sequences, train_targets)
+test_dataset = TensorDataset(test_sequences, test_targets)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    # Fit and transform features
-    X_train = preprocessor.fit_transform(train_df)
-    X_test = preprocessor.transform(test_df)
-    y_train = target_scaler.fit_transform(train_df[['value']])
-    y_test = target_scaler.transform(test_df[['value']])
+# Define model
+model = TransformerModel(feature_dim=1, d_model=64, nhead=8, num_layers=2)
 
-    # Combine features and target for sequence creation
-    train_data = np.hstack((y_train, X_train))
-    test_data = np.hstack((y_test, X_test))
-    full_data = np.vstack((train_data, test_data))
+# Loss and optimizer
+criterion = nn.MSELoss()
+optimizer = torch_optim.Adam(model.parameters(), lr=0.001)
 
-    return full_data, train_data.shape[0], preprocessor, target_scaler
-
-def train_model(data_path, save_dir="models"):
-    # Preprocess data
-    full_data, train_size, preprocessor, target_scaler = preprocess_data(data_path)
-    X, y = create_sequences(full_data, seq_length=96, predict_steps=1)
-
-    # Split into train and test
-    X_train, X_test = X[:train_size-96], X[train_size-96:]
-    y_train, y_test = y[:train_size-96], y[train_size-96:]
-
-    # Convert to tensors
-    X_train = torch.FloatTensor(X_train)
-    y_train = torch.FloatTensor(y_train)
-    X_test = torch.FloatTensor(X_test)
-    y_test = torch.FloatTensor(y_test)
-
-    # DataLoader
-    train_dataset = TensorDataset(X_train, y_train)
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-
-    # Initialize model
-    input_dim = X_train.shape[2]
-    model = ModelFactory.create_model(input_dim=input_dim, output_dim=1)
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    criterion = torch.nn.MSELoss()
-
-    # Training loop
-    train_losses, test_losses = [], []
-    for epoch in range(500):
+# Training function
+def train_model(model, train_loader, test_loader, num_epochs=500):
+    train_losses = []
+    val_losses = []
+    for epoch in range(num_epochs):
         model.train()
-        for batch_X, batch_y in train_loader:
+        train_loss = 0
+        for sequences, targets in train_loader:
+            sequences = sequences.permute(1, 0, 2)  # (seq_len, batch, feature_dim)
+            output = model(sequences)
+            loss = criterion(output, targets)
             optimizer.zero_grad()
-            outputs = model(batch_X)
-            loss = criterion(outputs, batch_y)
             loss.backward()
             optimizer.step()
-        
-        # Evaluation
-        model.eval()
-        with torch.no_grad():
-            train_pred = model(X_train)
-            test_pred = model(X_test)
-            train_loss = criterion(train_pred, y_train).item()
-            test_loss = criterion(test_pred, y_test).item()
+            train_loss += loss.item()
+        train_loss /= len(train_loader)
         train_losses.append(train_loss)
-        test_losses.append(test_loss)
 
-        if (epoch + 1) % 50 == 0:
-            print(f"Epoch {epoch+1} | Train Loss: {train_loss:.6f} | Test Loss: {test_loss:.6f}")
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for sequences, targets in test_loader:
+                sequences = sequences.permute(1, 0, 2)
+                output = model(sequences)
+                loss = criterion(output, targets)
+                val_loss += loss.item()
+            val_loss /= len(test_loader)
+            val_losses.append(val_loss)
 
-    # Save model
-    os.makedirs(save_dir, exist_ok=True)
-    torch.save(model.state_dict(), f"{save_dir}/transformer_model.pth")
-    return model, train_losses, test_losses, full_data, train_size, target_scaler
+        print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}')
+    return train_losses, val_losses
 
-def autoregressive_predict(model, data, train_size, horizon, seq_length=96):
-    model.eval()
-    predictions = []
-    input_seq = torch.FloatTensor(data[train_size-seq_length:train_size]).unsqueeze(0)
-    
+# Train the model
+train_losses, val_losses = train_model(model, train_loader, test_loader)
+
+# Save the trained model
+model_path = '/home/skillissue/Summer25/World Energy /models/saved_models/transformer_model.pth'
+torch.save(model.state_dict(), model_path)
+print(f"Model saved to {model_path}")
+
+# Plot losses and save the figure
+plot_loss(train_losses, val_losses, filename='loss_plot.png')
+
+# Get predictions with the trained model
+model.eval()
+with torch.no_grad():
+    train_pred = model(train_sequences.permute(1, 0, 2)).numpy()
+    test_pred = model(test_sequences.permute(1, 0, 2)).numpy()
+
+# Inverse transform predictions to original scale
+train_pred_original = processor.scaler.inverse_transform(train_pred)
+test_pred_original = processor.scaler.inverse_transform(test_pred)
+
+# Prepare data for plotting
+full_dates = processor.data['date'].values
+full_actual = processor.data['value'].values  # Original values before standardization
+train_pred_dates = processor.train_data['date'].iloc[processor.seq_len:].values
+test_pred_dates = processor.test_data['date'].iloc[processor.seq_len:].values
+
+# Generate future predictions up to December 2030 using the trained model
+last_date = pd.to_datetime(processor.data['date'].iloc[-1])
+target_date = pd.to_datetime('2030-12-01')
+num_future_steps = (target_date.year - last_date.year) * 12 + (target_date.month - last_date.month)
+future_dates = pd.date_range(start=last_date + pd.DateOffset(months=1), periods=num_future_steps, freq='MS')
+
+# Recursive forecasting with the trained model
+future_preds = []
+current_sequence = test_sequences[-1].clone().detach()  # (seq_len, 1)
+for _ in range(num_future_steps):
     with torch.no_grad():
-        for _ in range(horizon):
-            pred = model(input_seq)
-            predictions.append(pred.item())
-            # Shift sequence and append prediction
-            pred_scaled = torch.FloatTensor([[pred.item()] + [0]*(input_seq.shape[2]-1)]).unsqueeze(1)
-            input_seq = torch.cat((input_seq[:, 1:, :], pred_scaled), dim=1)
-    
-    return np.array(predictions)
+        prediction = model(current_sequence.unsqueeze(1))  # (1,1)
+        future_preds.append(prediction.item())
+        # Update sequence by shifting and appending the new prediction
+        current_sequence = torch.cat([current_sequence[1:], prediction], dim=0)
 
-if __name__ == "__main__":
-    data_path = "/home/skillissue/Summer25/World Energy /data/processed/final_model_ready.csv"
-    model, train_losses, test_losses, full_data, train_size, target_scaler = train_model(data_path)
-    # Predict for the test period and beyond (e.g., until 2030, 132 months from 2019)
-    predictions = autoregressive_predict(model, full_data, train_size, horizon=132)
+# Inverse transform future predictions to original scale
+future_pred_original = processor.scaler.inverse_transform(np.array(future_preds).reshape(-1, 1))
+
+# Plot all sequences including future predictions and save the figure
+plot_sequences(full_dates, full_actual, train_pred_dates, train_pred_original, test_pred_dates, test_pred_original, future_dates, future_pred_original, filename='sequences_plot.png')
+
+# Example: Load the saved model for inference
+loaded_model = load_model(model_path, feature_dim=1, d_model=64, nhead=8, num_layers=2)
+print("Loaded model for inference")
+
+# Example inference with the loaded model
+with torch.no_grad():
+    sample_pred = loaded_model(test_sequences[-1:].permute(1, 0, 2)).numpy()
+    sample_pred_original = processor.scaler.inverse_transform(sample_pred)
+    print(f"Sample prediction from loaded model: {sample_pred_original[0][0]:.4f}")

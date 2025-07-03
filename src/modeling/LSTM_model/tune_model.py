@@ -7,7 +7,6 @@ from model import SeasonalLSTM, create_sequences
 import pickle
 import os
 import torch.nn as nn
-from train import WeightedMSELoss
 
 def objective(trial, X_train, y_train, X_val, y_val, train_dataloader):
     """Objective function for hyperparameter tuning with Optuna.
@@ -39,7 +38,7 @@ def objective(trial, X_train, y_train, X_val, y_val, train_dataloader):
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
-    criterion = WeightedMSELoss(weight_factor=2.0)
+    criterion = nn.MSELoss()
 
     best_val_loss = float('inf')
     patience = 10
@@ -144,7 +143,7 @@ def tune_and_train(data, country, parameter, product):
         if test_loss < best_test_loss:
             best_test_loss = test_loss
             counter = 0
-            torch.save(model.state_dict(), "/home/skillissue/Summer25/World Energy /models/saved_models/tuned_seasonal_lstm_model.pth")
+            torch.save(model.state_dict(), "/home/skillissue/Summer25/World Energy/models/saved_models/tuned_seasonal_lstm_model.pth")
         else:
             counter += 1
             if counter >= patience:
@@ -166,5 +165,5 @@ def tune_and_train(data, country, parameter, product):
 if __name__ == "__main__":
     data = pd.read_csv(r"/home/skillissue/Summer25/World Energy /data/processed/model_ready.csv")
     model, best_params, feature_scaler, target_scaler = tune_and_train(
-        data, 'Argentina', 'Net Electricity Production', 'Electricity'
+        data, 'United States', 'Net Electricity Production', 'Electricity'
     )

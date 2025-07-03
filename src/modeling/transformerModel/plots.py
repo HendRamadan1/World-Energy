@@ -1,38 +1,33 @@
 import matplotlib.pyplot as plt
-import numpy as np
-import torch
 import pandas as pd
 
-def plot_loss(train_losses, test_losses, save_path="loss_plot.png"):
+def plot_loss(train_losses, val_losses, filename='loss_plot.png'):
+    """Plot training and validation losses and save the figure."""
     plt.figure(figsize=(10, 5))
-    plt.plot(train_losses, label='Train Loss', color='blue')
-    plt.plot(test_losses, label='Test Loss', color='red')
+    plt.plot(train_losses, label='Train Loss')
+    plt.plot(val_losses, label='Validation Loss')
     plt.xlabel('Epoch')
-    plt.ylabel('MSE Loss')
-    plt.title('Train vs Test Loss')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss Over Epochs')
     plt.legend()
-    plt.savefig(save_path)
-    plt.close()
+    plt.savefig(filename)
+    plt.show()
 
-def plot_sequences(data, train_size, predictions, target_scaler, save_path="sequence_plot.png"):
-    actual = target_scaler.inverse_transform(data[:, 0].reshape(-1, 1)).flatten()
-    pred_scaled = target_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
-    
-    plt.figure(figsize=(15, 6))
-    plt.plot(range(len(actual)), actual, label='Actual', color='blue')
-    plt.plot(range(train_size, train_size + len(pred_scaled)), pred_scaled, label='Predicted', color='red', linestyle='--')
-    plt.axvline(x=train_size, color='gray', linestyle='--', label='Train/Test Split')
-    plt.xlabel('Month Index')
-    plt.ylabel('Electricity Production')
-    plt.title('Actual vs Predicted Sequence (2019-2030)')
+def plot_sequences(dates, actual, train_dates, train_pred, test_dates, test_pred, future_dates=None, future_pred=None, filename='sequences_plot.png'):
+    """Plot actual, training predicted, testing predicted, and future predicted sequences and save the figure."""
+    dates = pd.to_datetime(dates)
+    train_dates = pd.to_datetime(train_dates)
+    test_dates = pd.to_datetime(test_dates)
+    plt.figure(figsize=(12, 6))
+    plt.plot(dates, actual, label='Actual', color='blue')
+    plt.plot(train_dates, train_pred, label='Train Prediction', color='green')
+    plt.plot(test_dates, test_pred, label='Test Prediction', color='red')
+    if future_dates is not None and future_pred is not None:
+        future_dates = pd.to_datetime(future_dates)
+        plt.plot(future_dates, future_pred, label='Future Prediction', color='purple')
+    plt.xlabel('Date')
+    plt.ylabel('Electricity Production (Value)')
+    plt.title('Electricity Production: Actual vs Predicted')
     plt.legend()
-    plt.savefig(save_path)
-    plt.close()
-
-if __name__ == "__main__":
-    from train import train_model, autoregressive_predict
-    data_path = "/home/skillissue/Summer25/World Energy /data/processed/final_model_ready.csv"
-    model, train_losses, test_losses, full_data, train_size, target_scaler = train_model(data_path)
-    predictions = autoregressive_predict(model, full_data, train_size, horizon=132)
-    plot_loss(train_losses, test_losses)
-    plot_sequences(full_data, train_size, predictions, target_scaler)
+    plt.savefig(filename)
+    plt.show()

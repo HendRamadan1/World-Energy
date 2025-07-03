@@ -1,47 +1,104 @@
+import pandas as pd
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
+from sklearn.preprocessing import StandardScaler
+import math
+
+class DataProcessor:
+    def __init__(self, data, seq_len=12):
+        self.data = data
+        self.seq_len = seq_len
+        self.scaler = StandardScaler()
+
+    def filter_data(self, country, parameter, product):
+        """Filter data for a specific permutation of country, parameter, and product."""
+        self.data = self.data[
+            (self.data['country_name'] == country) &
+            (self.data['parameter'] == parameter) &
+            (self.data['product'] == product)
+        ]
+
+    def sort_data(self):
+        """Sort data by date."""
+        self.data = self.data.sort_values('date')
+
+    def split_data(self, test_size=0.2):
+        """Split data into training and testing sets."""
+        split_idx = int(len(self.data) * (1 - test_size))
+        self.train_data = self.data.iloc[:split_idx]
+        self.test_data = self.data.iloc[split_idx:]
+
+    def standardize(self):
+        """Standardize the value column using training data statistics."""
+        self.train_values = self.scaler.fit_transform(self.train_data['value'].values.reshape(-1, 1))
+        self.test_values = self.scaler.transform(self.test_data['value'].values.reshape(-1, 1))
+
+    def create_sequences(self, values):
+        """Create input sequences and targets for time series forecasting."""
+        sequences = []
+        targets = []
+        for i in range(len(values) - self.seq_len):
+            seq = values[i:i + self.seq_len]
+            target = values[i + self.seq_len]
+            sequences.append(seq)
+            targets.append(target)
+        return np.array(sequences).reshape(-1, self.seq_len, 1), np.array(targets).reshape(-1, 1)
+
+    def get_train_sequences(self):
+        """Get training sequences and targets."""
+        return self.create_sequences(self.train_values)
+
+    def get_test_sequences(self):
+        """Get testing sequences and targets."""
+        return self.create_sequences(self.test_values)
+
+    def preprocess_categorical(self, columns=['hemisphere', 'production_season']):
+        """Preprocess categorical columns using one-hot encoding (for future multivariate use)."""
+        return pd.get_dummies(self.data[columns])
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
         super(PositionalEncoding, self).__init__()
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model))
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)  # Shape: (1, max_len, d_model)
+        pe = pe.unsqueeze(0).transpose(0, 1)
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:, :x.size(1), :]
+        x = x + self.pe[:x.size(0), :]
         return x
 
 class TransformerModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, n_layers=2, n_heads=4, dropout=0.1):
+    def __init__(self, feature_dim=1, d_model=64, nhead=8, num_layers=2, dropout=0.1):
         super(TransformerModel, self).__init__()
-        self.embedding = nn.Linear(input_dim, hidden_dim)
-        self.pos_encoder = PositionalEncoding(hidden_dim)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=n_heads, dropout=dropout, batch_first=True)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
-        self.fc = nn.Linear(hidden_dim, output_dim)
-        self.hidden_dim = hidden_dim
+        self.input_projection = nn.Linear(feature_dim, d_model)
+        self.pos_encoder = PositionalEncoding(d_model)
+        encoder_layers = nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward=512, dropout=dropout)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, num_layers)
+        self.decoder = nn.Linear(d_model, 1)
+        self.d_model = d_model
+        self.init_weights()
 
-    def forward(self, x):
-        x = self.embedding(x)  # (batch_size, seq_len, hidden_dim)
-        x = self.pos_encoder(x)
-        x = self.transformer_encoder(x)  # (batch_size, seq_len, hidden_dim)
-        x = self.fc(x[:, -1, :])  # Predict from last timestep
-        return x
+    def init_weights(self):
+        initrange = 0.1
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-initrange, initrange)
 
-class ModelFactory:
-    @staticmethod
-    def create_model(input_dim, output_dim, hidden_dim=128, n_layers=2, n_heads=4, dropout=0.1):
-        return TransformerModel(input_dim, hidden_dim, output_dim, n_layers, n_heads, dropout)
+    def forward(self, src):
+        src = self.input_projection(src)  # (seq_len, batch, feature_dim) -> (seq_len, batch, d_model)
+        src = src * math.sqrt(self.d_model)
+        src = self.pos_encoder(src)
+        output = self.transformer_encoder(src)
+        output = self.decoder(output[-1])  # (batch, d_model) -> (batch, 1)
+        return output
 
-def create_sequences(data, seq_length=96, predict_steps=1):
-    X, y = [], []
-    for i in range(len(data) - seq_length - predict_steps + 1):
-        X.append(data[i:i + seq_length])
-        y.append(data[i + seq_length:i + seq_length + predict_steps, 0])  # 'value' is first column
-    return np.array(X), np.array(y)
+def load_model(model_path, feature_dim=1, d_model=64, nhead=8, num_layers=2, dropout=0.1):
+    """Load a saved Transformer model from a file."""
+    model = TransformerModel(feature_dim=feature_dim, d_model=d_model, nhead=nhead, num_layers=num_layers, dropout=dropout)
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+    return model
