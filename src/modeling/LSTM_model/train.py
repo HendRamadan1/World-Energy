@@ -87,7 +87,7 @@ if __name__ == "__main__":
     data = pd.read_csv(r"/home/skillissue/Summer25/World Energy /data/processed/model_ready.csv")
     model, train_losses, test_losses, feat_scaler, target_scaler = train_model(
         data,
-        country='Germany',
+        country='United States',
         parameter='Net Electricity Production',
         product='Electricity',
         hidden_size=256,
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     plot_sequences(
         model=model,
         data=data,
-        country='Germany',
+        country='United States',
         parameter='Net Electricity Production',
         product='Electricity',
         feature_scaler=feat_scaler,
