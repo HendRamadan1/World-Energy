@@ -14,7 +14,7 @@ from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="My App", layout="wide")
 
-# شريط تنقّل علوي
+
 selected = option_menu(
     None,
     ["Home", "EDA", "Model", "Feature Engineering"],
@@ -23,7 +23,7 @@ selected = option_menu(
     key="top_menu"
 )
 
-# حسب الاختيار – نعرض المحتوى
+
 if selected == "Home":
     HomePage = st.Page("pages/main.py", title="Main Page", icon="🏠")
     pg = st.navigation([HomePage])
