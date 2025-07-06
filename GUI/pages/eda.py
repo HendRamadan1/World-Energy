@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-df = pd.read_csv(r"D:\course\Courses\World-Energy\data\raw.\global_electricity_production_data.csv")
+df = pd.read_csv(r"/home/skillissue/Summer25/World Energy /data/processed/final_model_ready.csv")
 st.markdown("## Exploratory  Data Analysis")
 st.markdown("""
        ### 🔍 Steps of (EDA)""")
@@ -170,7 +170,7 @@ with st.expander(" 5️⃣  **visulazation Data**"):
     st.markdown("""
     **Detect missing values**
      """)
-    st.image('plots/output.png',caption="Detect missing values with Bar plot")
+    st.image('../plots/output.png',caption="Detect missing values with Bar plot")
 
 
     

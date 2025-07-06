@@ -94,3 +94,8 @@ graph TD
 - **Initialization**: Careful weight initialization for stable training
 
 """)
+
+st.markdown("## Model Performance in USA's portion of the Data (Train loss vs test loss)")
+st.image("/home/skillissue/Summer25/World Energy /GUI/pages/loss_plot.png")
+st.markdown("## Model's actual predictions, visualized")
+st.image("/home/skillissue/Summer25/World Energy /GUI/pages/sequences_plot.png")
