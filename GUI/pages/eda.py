@@ -170,7 +170,7 @@ with st.expander(" 5️⃣  **visulazation Data**"):
     st.markdown("""
     **Detect missing values**
      """)
-    # st.image('plots/output.png',caption="Detect missing values with Bar plot")
+    st.image('plots/output.png',caption="Detect missing values with Bar plot")
 
 
     
