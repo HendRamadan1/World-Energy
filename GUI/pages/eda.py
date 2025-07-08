@@ -4,7 +4,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
 import numpy as np
-df = pd.read_csv(r"../data/processed/final_model_ready.csv")
+import seaborn as sns
+import matplotlib.dates as mdates
+df = pd.read_csv(r"D:\course\Courses\World-Energy\data\processed\final_model_ready.csv")
 st.markdown("## Exploratory  Data Analysis")
 st.markdown("""
        ### 🔍 Steps of (EDA)""")
@@ -366,3 +368,232 @@ parameter = st.selectbox(
 # Generate plot
 fig = SeasonalDiff(parameter)
 st.plotly_chart(fig, use_container_width=True)
+
+
+
+def plotYearlyGDP(countryName: str):
+    # Filter data for selected country
+    country_data = df[df['country_name'] == countryName].copy()
+    
+    # Convert date to datetime and extract year
+    country_data['date'] = pd.to_datetime(country_data['date'])
+    country_data['year'] = country_data['date'].dt.year
+    
+    # Aggregate to yearly data
+    yearly_data = country_data.groupby('year').agg({
+        'GDP': 'mean',
+        'GDP_per_capita': 'mean'
+    }).reset_index()
+    
+    # Create figure with 2 subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle(f'{countryName} Economic Trends', y=1.05, fontsize=16)
+    
+    # Plot 1: GDP
+    sns.lineplot(
+        data=yearly_data,
+        x='year',
+        y='GDP',
+        ax=ax1,
+        color='#1f77b4',
+        marker='o',
+        linewidth=2.5
+    )
+    ax1.set_title('GDP Over Time', pad=10)
+    ax1.set_xlabel('Year')
+    ax1.set_ylabel('GDP (Constant USD)')
+    ax1.grid(True, alpha=0.3)
+    ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
+    
+    # Plot 2: GDP per capita
+    sns.lineplot(
+        data=yearly_data,
+        x='year',
+        y='GDP_per_capita',
+        ax=ax2,
+        color='#ff7f0e',
+        marker='o',
+        linewidth=2.5
+    )
+    ax2.set_title('GDP Per Capita Over Time', pad=10)
+    ax2.set_xlabel('Year')
+    ax2.set_ylabel('GDP per Capita (Constant USD)')
+    ax2.grid(True, alpha=0.3)
+    ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, loc: "{:,}".format(int(x))))
+    
+    for ax in [ax1, ax2]:
+        ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    
+    plt.tight_layout()
+    return fig
+
+# Streamlit app
+st.title('Economic Indicators Dashboard')
+
+# Country selector with unique key
+country = st.selectbox(
+    'Select Country:',
+    sorted(df['country_name'].unique()),
+    key='gdp_country_selector'  # Unique key added here
+)
+
+# Generate and display plot
+try:
+    if 'GDP' in df.columns and 'GDP_per_capita' in df.columns:
+        fig = plotYearlyGDP(country)
+        st.pyplot(fig)
+    else:
+        st.warning("GDP data not found in the dataset. Please ensure your data contains 'GDP' and 'GDP_per_capita' columns.")
+except Exception as e:
+    st.error(f"Error generating plot: {str(e)}")
+    
+    
+
+
+def MTempAndDLHours(countryName: str):
+    # Filter data for selected country
+    country_data = df[df['country_name'] == countryName].copy()
+    
+    # Convert date to datetime
+    country_data['date'] = pd.to_datetime(country_data['date'])
+    
+    # Create figure with 2 subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle(f'{countryName} Climate Data', y=1.05, fontsize=16)
+    
+    # Plot 1: Monthly Temperature Averages
+    sns.lineplot(
+        data=country_data,
+        x='date',
+        y='Monthly Temperature Averages',
+        ax=ax1,
+        color='#e63946',
+        linewidth=2
+    )
+    ax1.set_title('Monthly Temperature Averages (°C)', pad=10)
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('Temperature')
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Daylight Hours
+    sns.lineplot(
+        data=country_data,
+        x='date',
+        y='Daylight Hours',
+        ax=ax2,
+        color='#457b9d',
+        linewidth=2
+    )
+    ax2.set_title('Daylight Hours', pad=10)
+    ax2.set_xlabel('Date')
+    ax2.set_ylabel('Hours')
+    ax2.grid(True, alpha=0.3)
+    
+    # Format x-axis for both plots
+    for ax in [ax1, ax2]:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+    
+    plt.tight_layout()
+    return fig
+
+# Streamlit app
+st.title('Climate Data Dashboard')
+
+# Country selector with unique key
+country = st.selectbox(
+    'Select Country:',
+    sorted(df['country_name'].unique()),
+    key='climate_country_selector'
+)
+
+# Generate and display plot
+try:
+    if all(col in df.columns for col in ['Monthly Temperature Averages', 'Daylight Hours']):
+        fig = MTempAndDLHours(country)
+        st.pyplot(fig)
+    else:
+        st.warning("Required columns not found. Dataset needs: 'Monthly Temperature Averages' and 'Daylight Hours'")
+except Exception as e:
+    st.error(f"Error generating plot: {str(e)}")
+    
+    
+    
+    
+    
+import matplotlib.dates as mdates
+
+def industry_and_energyprice(countryName: str):
+    # Filter data for selected country
+    country_data = df[df['country_name'] == countryName].copy()
+    
+    # Convert date to datetime
+    country_data['date'] = pd.to_datetime(country_data['date'])
+    
+    # Create figure with 2 subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle(f'{countryName} Industry & Energy Trends', y=1.05, fontsize=16)
+    
+    # Plot 1: Industrial Production Index
+    sns.lineplot(
+        data=country_data,
+        x='date',
+        y='Industrial Production Index',
+        ax=ax1,
+        color='#4e79a7',
+        linewidth=2.5,
+        marker='o',
+        markersize=5
+    )
+    ax1.set_title('Industrial Production Index', pad=10)
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('Index Value')
+    ax1.grid(True, alpha=0.3)
+    
+    # Plot 2: Average Energy Price
+    sns.lineplot(
+        data=country_data,
+        x='date',
+        y='Average Energy Price (USD/MWh)',
+        ax=ax2,
+        color='#e15759',
+        linewidth=2.5,
+        marker='o',
+        markersize=5
+    )
+    ax2.set_title('Average Energy Price', pad=10)
+    ax2.set_xlabel('Date')
+    ax2.set_ylabel('USD per MWh')
+    ax2.grid(True, alpha=0.3)
+    
+    # Format x-axis for both plots
+    for ax in [ax1, ax2]:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+    
+    plt.tight_layout()
+    return fig
+
+# Streamlit app
+st.title('Industry & Energy Price Dashboard')
+
+# Country selector with unique key
+country = st.selectbox(
+    'Select Country:',
+    sorted(df['country_name'].unique()),
+    key='industry_energy_selector'  # Unique key for this widget
+)
+
+# Generate and display plot
+try:
+    required_cols = ['Industrial Production Index', 'Average Energy Price (USD/MWh)']
+    if all(col in df.columns for col in required_cols):
+        fig = industry_and_energyprice(country)
+        st.pyplot(fig)
+    else:
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        st.warning(f"Missing required columns: {', '.join(missing_cols)}")
+except Exception as e:
+    st.error(f"Error generating plot: {str(e)}")    
