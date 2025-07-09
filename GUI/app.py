@@ -1,15 +1,4 @@
 import streamlit as st
-
-# # Define the pages
-# HomePage = st.Page("pages/main.py", title="Main Page", icon="🏠")
-# TransformerModel = st.Page("pages/transformer_model.py", title="Transformer Model", icon="🤖")
-# Eda = st.Page("pages/eda.py", title="EDA", icon="📊")
-# FeatureEngineering = st.Page("pages/feature_engineering.py", title="Feature Engineering", icon="🛠")
-# pg = st.navigation([HomePage, TransformerModel, Eda, FeatureEngineering])
-
-# # Run the selected page
-# pg.run()
-import streamlit as st
 from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="My App", layout="wide")
