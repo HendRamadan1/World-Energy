@@ -1,7 +1,0 @@
-#TODO: see if we can make more plots (Hend)
-#TODO: add 3 columns: at war and with_who, and continent (Hend)
-the column names: at_war, with_who
-at_war(0 or 1 column)
-with_who(if at_war=1, then mention the countries that it is at war with, if there is more than 1 country, store the value inside it as a tuple)
-Good luck!
- 
